@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feed the Kitty!</title>
+<style>
+  :root {
+    --ink: #493d58;
+    --pink: #ffb8cf;
+    --pink-dark: #f27da6;
+    --cream: #fff9ed;
+    --mint: #bdebdc;
+    --yellow: #ffe28b;
+    --purple: #cbbcf4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 18px;
+    display: grid; place-items: center;
+    background: radial-gradient(circle at 15% 15%, #fff4c9, transparent 28%),
+                radial-gradient(circle at 85% 20%, #fbd7e7, transparent 30%),
+                #e9e2ff;
+    color: var(--ink); font-family: "Trebuchet MS", "Arial Rounded MT Bold", system-ui, sans-serif;
+  }
+  button { font: inherit; }
+  .game {
+    width: min(900px, 100%); min-height: 650px; padding: 22px;
+    border: 5px solid white; border-radius: 30px;
+    background: rgba(255,255,255,.86); box-shadow: 0 14px 35px #66558a2b;
+    position: relative; overflow: hidden;
+  }
+  header { text-align: center; }
+  h1 { margin: 0; font-size: clamp(2rem, 6vw, 3.2rem); color: #ed76a0; letter-spacing: 1px; }
+  .subtitle { margin: 4px 0 17px; font-size: 1.05rem; }
+  .hud { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 15px; }
+  .pill { background: #fff2c9; border: 2px solid white; border-radius: 18px; padding: 8px 15px; font-weight: 800; min-width: 112px; }
+  .pill.score { background: #d8f6e9; }
+  .pill.lives { background: #ffe0eb; }
+  .arena {
+    min-height: 300px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+    align-items: center; padding: 15px; border-radius: 24px;
+    background: linear-gradient(135deg, #fff8e9, #f2edff);
+    border: 3px dashed #d5c8ef;
+  }
+  .cat-zone { text-align: center; padding: 12px; border-radius: 22px; transition: .18s; }
+  .cat-zone.over { background: #ffe3ef; outline: 4px dashed var(--pink-dark); transform: scale(1.02); }
+  .cat { font-size: clamp(7rem, 19vw, 10rem); line-height: 1.15; filter: drop-shadow(0 7px 3px #6d547522); }
+  .cat-name { font-size: 1.35rem; font-weight: 900; }
+  .cat-hint { font-size: .95rem; margin-top: 5px; }
+  .food-area { display: grid; grid-template-columns: repeat(3, minmax(58px, 1fr)); gap: 10px; }
+  .food {
+    min-height: 78px; border: 3px solid white; border-radius: 18px;
+    background: white; box-shadow: 0 4px 0 #d9d0e8;
+    display: grid; place-items: center; cursor: grab; touch-action: none;
+    user-select: none; font-size: 2.5rem; position: relative;
+    transition: transform .12s, opacity .12s;
+  }
+  .food:active { cursor: grabbing; transform: scale(1.08); }
+  .food.dragging { position: fixed; z-index: 20; pointer-events: none; transform: scale(1.12); opacity: .95; }
+  .food.gone { visibility: hidden; pointer-events: none; }
+  .food:focus-visible, button:focus-visible { outline: 4px solid #8a70d6; outline-offset: 3px; }
+  .food-label { position: absolute; bottom: 3px; font-size: .65rem; font-weight: 800; }
+  .instructions { text-align: center; margin: 15px 0 0; font-size: .98rem; }
+  .progress-wrap { height: 13px; background: #eee8f8; border-radius: 99px; overflow: hidden; margin: 9px auto 0; max-width: 500px; }
+  .progress { height: 100%; width: 0%; background: linear-gradient(90deg, #7ed9b5, #b5e77e); transition: width .2s; }
+  .message { min-height: 28px; text-align: center; margin: 10px 0 0; font-weight: 800; color: #8b65b9; }
+  .controls { text-align: center; margin-top: 12px; }
+  .start {
+    border: 0; border-radius: 18px; padding: 12px 25px; color: white;
+    background: #ed82a8; box-shadow: 0 5px 0 #cf638a; font-weight: 900; cursor: pointer;
+  }
+  .start:active { transform: translateY(3px); box-shadow: 0 2px 0 #cf638a; }
+  .overlay {
+    position: absolute; inset: 0; z-index: 30; display: grid; place-items: center;
+    padding: 20px; background: #fffaf0eF; text-align: center;
+  }
+  .overlay[hidden] { display: none; }
+  .modal { max-width: 440px; background: white; border: 4px solid #f8c2d5; border-radius: 28px; padding: 28px; box-shadow: 0 10px 30px #55446b22; }
+  .modal .big { font-size: 4.5rem; }
+  .modal h2 { margin: 4px 0 8px; color: #e9759c; font-size: 2rem; }
+  .modal p { line-height: 1.5; }
+  @media (max-width: 620px) {
+    body { padding: 8px; }
+    .game { padding: 14px; min-height: 0; }
+    .arena { grid-template-columns: 1fr; }
+    .cat { font-size: 7rem; }
+    .food-area { grid-template-columns: repeat(4, minmax(48px, 1fr)); }
+    .food { min-height: 67px; font-size: 2.1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="game">
+  <header>
+    <h1>🐾 Feed the Kitty! 🐾</h1>
+    <p class="subtitle">Help Mimi eat all the yummy, healthy foods!</p>
+  </header>
+
+  <section class="hud" aria-label="Game status">
+    <div class="pill">⏰ Time: <span id="time">30</span>s</div>
+    <div class="pill score">⭐ Points: <span id="score">0</span></div>
+    <div class="pill lives">❤️ Lives: <span id="lives">3</span></div>
+  </section>
+
+  <section class="arena" aria-label="Food and cat play area">
+    <div class="cat-zone" id="catZone" aria-label="Drop food here to feed Mimi">
+      <div class="cat" id="cat" aria-hidden="true">🐱</div>
+      <div class="cat-name">Mimi the Kitty</div>
+      <div class="cat-hint">Drag a food to Mimi!</div>
+    </div>
+    <div class="food-area" id="foodArea" aria-label="Foods to choose from"></div>
+  </section>
+
+  <p class="instructions">🍓 Feed Mimi the fruits and veggies. Avoid the candy and sweets!</p>
+  <div class="progress-wrap" aria-label="Healthy food progress"><div class="progress" id="progress"></div></div>
+  <p class="message" id="message" aria-live="polite">Ready, set, snack!</p>
+  <div class="controls"><button class="start" id="startBtn">Start Game!</button></div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="big">🐱🍎</div>
+      <h2>Ready to feed Mimi?</h2>
+      <p>You have <strong>30 seconds</strong> to feed Mimi every fruit and veggie. You have <strong>3 lives</strong>, so watch out for the sweets!</p>
+      <p>Drag a food onto Mimi. You can also tap a food, then tap Mimi.</p>
+      <button class="start" id="playBtn">Let's Play!</button>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const foods = [
+    { emoji: "🍎", name: "Apple", healthy: true },
+    { emoji: "🥕", name: "Carrot", healthy: true },
+    { emoji: "🍌", name: "Banana", healthy: true },
+    { emoji: "🥦", name: "Broccoli", healthy: true },
+    { emoji: "🍓", name: "Strawberry", healthy: true },
+    { emoji: "🍇", name: "Grapes", healthy: true },
+    { emoji: "🥒", name: "Cucumber", healthy: true },
+    { emoji: "🍊", name: "Orange", healthy: true },
+    { emoji: "🍭", name: "Lollipop", healthy: false },
+    { emoji: "🍩", name: "Donut", healthy: false },
+    { emoji: "🍬", name: "Candy", healthy: false },
+    { emoji: "🧁", name: "Cupcake", healthy: false }
+  ];
+
+  const $ = id => document.getElementById(id);
+  const timeEl = $("time"), scoreEl = $("score"), livesEl = $("lives");
+  const foodArea = $("foodArea"), catZone = $("catZone"), cat = $("cat");
+  const message = $("message"), progress = $("progress"), overlay = $("overlay");
+  let time = 30, score = 0, lives = 3, healthyFed = 0;
+  let running = false, timer = null, selectedFood = null, dragState = null;
+  const totalHealthy = foods.filter(f => f.healthy).length;
+
+  function shuffle(items) {
+    const a = [...items];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function updateHud() {
+    timeEl.textContent = time;
+    scoreEl.textContent = score;
+    livesEl.textContent = lives;
+    progress.style.width = `${healthyFed / totalHealthy * 100}%`;
+  }
+
+  function setMessage(text) { message.textContent = text; }
+
+  function makeFood(food, index) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "food";
+    item.dataset.healthy = String(food.healthy);
+    item.dataset.name = food.name;
+    item.setAttribute("aria-label", food.name);
+    item.innerHTML = `<span aria-hidden="true">${food.emoji}</span><span class="food-label">${food.name}</span>`;
+    item.addEventListener("pointerdown", event => beginDrag(event, item));
+    item.addEventListener("click", () => {
+      if (!running || dragState) return;
+      if (selectedFood === item) {
+        selectedFood = null;
+        item.style.outline = "";
+        setMessage("Choose a food, then tap Mimi!");
+      } else {
+        if (selectedFood) selectedFood.style.outline = "";
+        selectedFood = item;
+        item.style.outline = "4px solid #9c83df";
+        setMessage(`${food.name} picked! Now tap Mimi.`);
+      }
+    });
+    return item;
+  }
+
+  function beginDrag(event, item) {
+    if (!running || event.button !== 0) return;
+    event.preventDefault();
+    if (selectedFood) { selectedFood.style.outline = ""; selectedFood = null; }
+    const rect = item.getBoundingClientRect();
+    const clone = item.cloneNode(true);
+    clone.className = "food dragging";
+    clone.style.width = rect.width + "px";
+    clone.style.height = rect.height + "px";
+    clone.style.left = (event.clientX - rect.width / 2) + "px";
+    clone.style.top = (event.clientY - rect.height / 2) + "px";
+    document.body.appendChild(clone);
+    item.classList.add("gone");
+    dragState = { item, clone, pointerId: event.pointerId };
+    item.setPointerCapture?.(event.pointerId);
+    document.addEventListener("pointermove", moveDrag);
+    document.addEventListener("pointerup", endDrag, { once: true });
+    document.addEventListener("pointercancel", cancelDrag, { once: true });
+  }
+
+  function moveDrag(event) {
+    if (!dragState) return;
+    const { clone } = dragState;
+    clone.style.left = (event.clientX - clone.offsetWidth / 2) + "px";
+    clone.style.top = (event.clientY - clone.offsetHeight / 2) + "px";
+    const r = catZone.getBoundingClientRect();
+    const over = event.clientX >= r.left && event.clientX <= r.right &&
+                 event.clientY >= r.top && event.clientY <= r.bottom;
+    catZone.classList.toggle("over", over);
+  }
+
+  function endDrag(event) {
+    if (!dragState) return;
+    moveDrag(event);
+    const r = catZone.getBoundingClientRect();
+    const droppedOnCat = event.clientX >= r.left && event.clientX <= r.right &&
+                         event.clientY >= r.top && event.clientY <= r.bottom;
+    const { item, clone } = dragState;
+    clone.remove();
+    item.classList.remove("gone");
+    dragState = null;
+    catZone.classList.remove("over");
+    if (droppedOnCat) feed(item);
+  }
+
+  function cancelDrag() {
+    if (!dragState) return;
+    dragState.clone.remove();
+    dragState.item.classList.remove("gone");
+    dragState = null;
+    catZone.classList.remove("over");
+  }
+
+  function feed(item) {
+    if (!running || !item || item.dataset.used === "true") return;
+    item.dataset.used = "true";
+    item.classList.add("gone");
+    item.disabled = true;
+    item.style.outline = "";
+    selectedFood = null;
+
+    if (item.dataset.healthy === "true") {
+      healthyFed++;
+      score += 10;
+      cat.textContent = "😻";
+      setMessage(`Yum! Mimi loves ${item.dataset.name}! +10 points!`);
+      if (healthyFed === totalHealthy) finish(true);
+    } else {
+      lives--;
+      cat.textContent = "🙀";
+      setMessage(`Oh no! ${item.dataset.name} is a sweet treat. One life lost!`);
+      if (lives <= 0) finish(false);
+    }
+    updateHud();
+    if (running) {
+      setTimeout(() => { if (running) cat.textContent = "🐱"; }, 650);
+    }
+  }
+
+  function finish(won) {
+    if (!running) return;
+    running = false;
+    clearInterval(timer);
+    $("playBtn").textContent = "Play Again!";
+    overlay.hidden = false;
+    const modal = overlay.querySelector(".modal");
+    modal.innerHTML = won
+      ? `<div class="big">🏆😻</div><h2>You did it!</h2><p>Mimi ate all the healthy foods! You earned <strong>${score} points</strong>. Great job, food hero!</p><button class="start" id="againBtn">Play Again!</button>`
+      : `<div class="big">🐱💗</div><h2>Game over!</h2><p>${lives <= 0 ? "Mimi ran out of lives." : "Time ran out!"} You fed Mimi ${healthyFed} of ${totalHealthy} healthy foods and earned <strong>${score} points</strong>.</p><button class="start" id="againBtn">Try Again!</button>`;
+    $("againBtn").addEventListener("click", startGame);
+  }
+
+  function startGame() {
+    clearInterval(timer);
+    time = 30; score = 0; lives = 3; healthyFed = 0;
+    running = true; selectedFood = null;
+    cat.textContent = "🐱";
+    foodArea.innerHTML = "";
+    shuffle(foods).forEach((food, i) => foodArea.appendChild(makeFood(food, i)));
+    updateHud();
+    setMessage("Go, go, go! Feed Mimi all the healthy foods!");
+    overlay.hidden = true;
+    $("startBtn").textContent = "Restart Game";
+    timer = setInterval(() => {
+      if (!running) return;
+      time--;
+      updateHud();
+      if (time <= 0) finish(false);
+    }, 1000);
+  }
+
+  catZone.addEventListener("click", () => {
+    if (running && selectedFood) feed(selectedFood);
+  });
+  $("playBtn").addEventListener("click", startGame);
+  $("startBtn").addEventListener("click", () => {
+    if (running) {
+      clearInterval(timer);
+      running = false;
+      overlay.hidden = false;
+      const modal = overlay.querySelector(".modal");
+      modal.innerHTML = `<div class="big">🐾</div><h2>Start over?</h2><p>Your current round will end and a new game will begin.</p><button class="start" id="againBtn">New Game</button>`;
+      $("againBtn").addEventListener("click", startGame);
+    } else {
+      overlay.hidden = false;
+      const modal = overlay.querySelector(".modal");
+      modal.innerHTML = `<div class="big">🐱🍎</div><h2>Ready to feed Mimi?</h2><p>You have 30 seconds to feed every fruit and veggie. Avoid sweets!</p><button class="start" id="againBtn">Let's Play!</button>`;
+      $("againBtn").addEventListener("click", startGame);
+    }
+  });
+})();
+</script>
+</body>
+</html>
